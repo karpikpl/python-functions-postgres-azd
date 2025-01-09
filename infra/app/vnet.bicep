@@ -10,6 +10,9 @@ param peSubnetName string = 'private-endpoints-subnet'
 @description('Specifies the name of the subnet for Function App virtual network integration.')
 param appSubnetName string = 'app'
 
+@description('Specifies the name of the subnet for the database.')
+param dbSubnetName string = 'db'
+
 param tags object = {}
 
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-05-01' = {
@@ -63,6 +66,29 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-05-01' = {
         }
         type: 'Microsoft.Network/virtualNetworks/subnets'
       }
+      {
+        name: dbSubnetName
+        id: resourceId('Microsoft.Network/virtualNetworks/subnets', vNetName, 'db')
+        properties: {
+          addressPrefixes: [
+            '10.0.3.0/24'
+          ]
+          delegations: [
+            {
+              name: 'delegation'
+              id: '${resourceId('Microsoft.Network/virtualNetworks/subnets', vNetName, 'db')}/delegations/delegation'
+              properties: {
+                //Microsoft.App/environments is the correct delegation for Flex Consumption VNet integration
+                serviceName: 'Microsoft.DBforPostgreSQL/flexibleServers'
+              }
+              type: 'Microsoft.Network/virtualNetworks/subnets/delegations'
+            }
+          ]
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+        type: 'Microsoft.Network/virtualNetworks/subnets'
+      }
     ]
     virtualNetworkPeerings: []
     enableDdosProtection: false
@@ -73,3 +99,6 @@ output peSubnetName string = virtualNetwork.properties.subnets[0].name
 output peSubnetID string = virtualNetwork.properties.subnets[0].id
 output appSubnetName string = virtualNetwork.properties.subnets[1].name
 output appSubnetID string = virtualNetwork.properties.subnets[1].id
+output dbSubnetName string = virtualNetwork.properties.subnets[2].name
+output dbSubnetID string = virtualNetwork.properties.subnets[2].id
+output vnetName string = virtualNetwork.name

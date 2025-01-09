@@ -25,11 +25,35 @@ param storageAccountName string = ''
 param vNetName string = ''
 param disableLocalAuth bool = true
 
+// --------------------------------------------------------------------------------------------------------------
+// Personal info
+// --------------------------------------------------------------------------------------------------------------
+@description('My IP address for network access')
+param myIpAddress string = ''
+@description('Id of the user executing the deployment')
+param principalId string = ''
+
+// --------------------------------------------------------------------------------------------------------------
+// Database
+// --------------------------------------------------------------------------------------------------------------
+@description('Azure AD admin name.')
+param aadAdminName string
+
+@description('Azure AD admin Type')
+@allowed([
+  'User'
+  'Group'
+  'ServicePrincipal'
+])
+param aadAdminType string = 'User'
+param databaseName string = 'appdb'
+
 var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var tags = { 'azd-env-name': environmentName }
 var functionAppName = !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesFunctions}api-${resourceToken}'
 var deploymentStorageContainerName = 'app-package-${take(functionAppName, 32)}-${take(toLower(uniqueString(functionAppName, resourceToken)), 7)}'
+var queueName = 'app-queue-${take(functionAppName, 32)}-${take(toLower(uniqueString(functionAppName, resourceToken)), 7)}'
 
 // Organize resources in a resource group
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
@@ -94,23 +118,38 @@ module storage './core/storage/storage-account.bicep' = {
     location: location
     tags: tags
     containers: [{name: deploymentStorageContainerName}]
-    publicNetworkAccess: skipVnet ? 'Enabled' : 'Disabled'
+    queues: [queueName]
+    publicNetworkAccess: 'Enabled'
     networkAcls: skipVnet ? {} : {
+      bypass: 'AzureServices'
       defaultAction: 'Deny'
+      ipRules: empty(myIpAddress)
+        ? []
+        : [
+            {
+              value: myIpAddress
+            }
+          ]
     }
   }
 }
 
-var storageRoleDefinitionId  = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b' //Storage Blob Data Owner role
-
-// Allow access from api to storage account using a managed identity
-module storageRoleAssignmentApi 'app/storage-Access.bicep' = {
-  name: 'storageRoleAssignmentApi'
+module accessForApp 'app/all-access.bicep' = {
+  name: 'accessForApp'
   scope: rg
   params: {
-    storageAccountName: storage.outputs.name
-    roleDefinitionID: storageRoleDefinitionId
-    principalID: apiUserAssignedIdentity.outputs.identityPrincipalId
+    storageName: storage.outputs.name
+    principalId: apiUserAssignedIdentity.outputs.identityPrincipalId
+  }
+}
+
+module accessForUser 'app/all-access.bicep' = if (!empty(principalId)) {
+  name: 'accessForUser'
+  scope: rg
+  params: {
+    storageName: storage.outputs.name
+    principalId: principalId
+    principalType: 'User'
   }
 }
 
@@ -162,6 +201,39 @@ module appInsightsRoleAssignmentApi './core/monitor/appinsights-access.bicep' = 
     principalID: apiUserAssignedIdentity.outputs.identityPrincipalId
   }
 }
+
+module pg 'db/postgresql.bicep' = {
+  name: 'pg'
+  scope: rg
+  params: {
+    name: '${resourceToken}-postgresql'
+    location: location
+    tags: tags
+    authType: 'EntraOnly'
+    aadAdminObjectid: principalId
+    aadAdminName: aadAdminName
+    aadAdminType: aadAdminType
+    databaseNames: [ databaseName ]
+    storage: {
+      storageSizeGB: 32
+    }
+    version: '17'
+    allowAllIPsFirewall: false
+    allowedSingleIPs: [ myIpAddress ]
+    virtualNetworkName: serviceVirtualNetwork.outputs.vnetName
+    subnetNameForPE: serviceVirtualNetwork.outputs.peSubnetName
+    subnetNameForDB: serviceVirtualNetwork.outputs.dbSubnetName
+  }
+}
+
+output POSTGRES_USERNAME string = aadAdminName
+output POSTGRES_DATABASE string = databaseName
+output POSTGRES_HOST string = pg.outputs.POSTGRES_DOMAIN_NAME
+output POSTGRES_SSL string = 'require'
+output POSTGRES_NAME string = pg.outputs.POSTGRES_NAME
+output POSTGRES_MONITORED_TABLE_NAME string = 'monitored_table'
+output POSTGRES_TARGET_TABLE_NAME string = 'target_table'
+output IDENTITY_NAME string = apiUserAssignedIdentity.outputs.identityName
 
 // App outputs
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.applicationInsightsConnectionString

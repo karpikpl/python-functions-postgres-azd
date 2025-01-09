@@ -10,6 +10,15 @@
     },
     "skipVnet": {
       "value": "${SKIP_VNET}"
+    },
+    "myIpAddress": {
+      "value": "${MY_IP}"
+    },
+    "principalId": {
+      "value": "${AZURE_PRINCIPAL_ID}"
+    },
+    "aadAdminName": {
+      "value": "${CURRENT_USER}"
     }
   }
 }

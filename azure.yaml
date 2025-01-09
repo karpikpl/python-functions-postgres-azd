@@ -8,3 +8,89 @@ services:
     project: .
     language: python
     host: function
+
+hooks:
+  # This script gets my IP address
+  preprovision:
+    shell: pwsh
+    run: |
+      $myIP = $(Invoke-WebRequest -Uri "https://api.ipify.org").Content
+      azd env set MY_IP $myIP
+      $current_user = $(az ad signed-in-user show --query mail --output tsv)
+      azd env set CURRENT_USER $current_user
+    continueOnError: false
+    interactive: false
+  
+  postprovision:
+    shell: sh
+    run: |
+      echo "Loading azd .env file from current environment"
+
+      # Use the `get-values` azd command to retrieve environment variables from the `.env` file
+      while IFS='=' read -r key value; do
+          value=$(echo "$value" | sed 's/^"//' | sed 's/"$//')
+          export "$key=$value"
+      done <<EOF
+      $(azd env get-values) 
+      EOF
+
+      CURRENT_USER=$(az ad signed-in-user show --query mail --output tsv)
+      CURRENT_USER=$(echo "$CURRENT_USER" | tr -d '\r\n')
+
+      TOKEN=$(az account get-access-token --resource-type oss-rdbms --output tsv --query accessToken)
+      SCRIPT=$(cat <<EOF
+        SELECT * FROM pgaadauth_list_principals(false);
+        DO \$\$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pgaadauth_list_principals(false) WHERE rolname = '$IDENTITY_NAME') THEN
+                PERFORM pgaadauth_create_principal('$IDENTITY_NAME', false, false);
+            END IF;
+        END
+        \$\$;
+        select * from pgaadauth_list_principals(false);
+        GRANT CONNECT ON DATABASE $POSTGRES_DATABASE TO "$IDENTITY_NAME";
+        GRANT USAGE ON SCHEMA public TO "$IDENTITY_NAME";
+        GRANT CREATE ON SCHEMA public TO "$IDENTITY_NAME";
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "$IDENTITY_NAME";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "$IDENTITY_NAME";
+      EOF
+      )
+      SCHEMA=$(cat <<EOF
+        CREATE TABLE IF NOT EXISTS $POSTGRES_MONITORED_TABLE_NAME (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            IsProcessed BOOLEAN DEFAULT FALSE,
+            created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS $POSTGRES_TARGET_TABLE_NAME (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      EOF
+      )
+
+      echo "SCRIPT: $SCRIPT"
+      echo "--------------"
+      echo "Running docker run --rm postgres:17-alpine psql \"host=$POSTGRES_HOST port=5432 dbname=postgres user=$CURRENT_USER password=xxx\""
+      # docker run --rm postgres:17-alpine psql "host=$POSTGRES_HOST port=5432 dbname=postgres user=$CURRENT_USER password=$TOKEN" -c "$SCRIPT"
+      # docker run --rm postgres:17-alpine psql "host=$POSTGRES_HOST port=5432 dbname=$POSTGRES_DATABASE user=$CURRENT_USER password=$TOKEN" -c "$SCHEMA"
+      
+      az postgres flexible-server execute \
+      --name $POSTGRES_NAME \
+      --database-name postgres \
+      --querytext "$SCRIPT" \
+      --admin-user $CURRENT_USER \
+      --admin-password $TOKEN
+      echo "INFO:: Added  managed identity, $IDENTITY_NAME identity, as a ROLE on PostgreSQL server: $POSTGRES_NAME."
+
+      az postgres flexible-server execute \
+      --name $POSTGRES_NAME \
+      --database-name $POSTGRES_DATABASE \
+      --querytext "$SCHEMA" \
+      --admin-user $CURRENT_USER \
+      --admin-password $TOKEN
+      echo "INFO:: Added schema to database: $POSTGRES_DATABASE in PostgreSQL server: $POSTGRES_NAME."
+          
+    continueOnError: false
+    interactive: false

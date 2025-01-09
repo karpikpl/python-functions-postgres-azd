@@ -29,6 +29,7 @@ module api '../core/host/functions-flexconsumption.bicep' = {
       {
         AzureWebJobsStorage__clientId : identityClientId
         APPLICATIONINSIGHTS_AUTHENTICATION_STRING: applicationInsightsIdentity
+        FUNCTIONS_EXTENSION_VERSION : '~3'
       })
     applicationInsightsName: applicationInsightsName
     appServicePlanId: appServicePlanId

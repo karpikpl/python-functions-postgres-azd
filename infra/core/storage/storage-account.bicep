@@ -6,6 +6,7 @@ param allowBlobPublicAccess bool = false
 @allowed(['Enabled', 'Disabled'])
 param publicNetworkAccess string = 'Enabled'
 param containers array = []
+param queues string[] = []
 param kind string = 'StorageV2'
 param minimumTlsVersion string = 'TLS1_2'
 param sku object = { name: 'Standard_LRS' }
@@ -36,6 +37,14 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
         publicAccess: container.?publicAccess ?? 'None'
       }
     }]
+  }
+  resource queueServices 'queueServices' = {
+    name: 'default'
+    resource queue 'queues' = [
+      for queue in queues: {
+        name: queue
+      }
+    ]
   }
 }
 
