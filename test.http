@@ -22,16 +22,3 @@ content-type: application/json
     "name": "yo yo"
 }
 
-###
-GET https://func-api-6oz3lgrp6b54q.azurewebsites.net/api/db/target?code=Q1x9nSk2hsFXJ0RqkyW8i70iCpXRnAxuIWopcbYkz6WAAzFun6WEvg%3D%3D
-
-###
-GET https://func-api-6oz3lgrp6b54q.azurewebsites.net/api/db/monitored?code=Q1x9nSk2hsFXJ0RqkyW8i70iCpXRnAxuIWopcbYkz6WAAzFun6WEvg%3D%3D
-
-### Add data to monitored table
-POST https://func-api-6oz3lgrp6b54q.azurewebsites.net/api/db/monitored?code=Q1x9nSk2hsFXJ0RqkyW8i70iCpXRnAxuIWopcbYkz6WAAzFun6WEvg%3D%3D HTTP/1.1
-content-type: application/json
-
-{
-    "name": "yo yo 5"
-}
