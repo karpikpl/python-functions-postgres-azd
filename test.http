@@ -1,15 +1,37 @@
-GET http://localhost:7071/api/httpget HTTP/1.1
 
-###
+### Get from monitored table
+GET http://localhost:7071/api/db/monitored HTTP/1.1
 
-GET http://localhost:7071/api/httpget?name=World HTTP/1.1
 
-###
+### Get from target table
+GET http://localhost:7071/api/db/target HTTP/1.1
 
-POST http://localhost:7071/api/httppost HTTP/1.1
+### Add data to monitored table
+POST http://localhost:7071/api/db/monitored HTTP/1.1
 content-type: application/json
 
 {
-    "name": "Awesome Developer",
-    "age": 25
+    "name": "yo yo"
+}
+
+### Enqueue
+POST http://localhost:7071/api/queue
+content-type: application/json
+
+{
+    "name": "yo yo"
+}
+
+###
+GET https://func-api-6oz3lgrp6b54q.azurewebsites.net/api/db/target?code=Q1x9nSk2hsFXJ0RqkyW8i70iCpXRnAxuIWopcbYkz6WAAzFun6WEvg%3D%3D
+
+###
+GET https://func-api-6oz3lgrp6b54q.azurewebsites.net/api/db/monitored?code=Q1x9nSk2hsFXJ0RqkyW8i70iCpXRnAxuIWopcbYkz6WAAzFun6WEvg%3D%3D
+
+### Add data to monitored table
+POST https://func-api-6oz3lgrp6b54q.azurewebsites.net/api/db/monitored?code=Q1x9nSk2hsFXJ0RqkyW8i70iCpXRnAxuIWopcbYkz6WAAzFun6WEvg%3D%3D HTTP/1.1
+content-type: application/json
+
+{
+    "name": "yo yo 5"
 }

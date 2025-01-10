@@ -11,6 +11,7 @@ products:
 - azure
 - azure-functions
 - entra-id
+- postgresql
 urlFragment: functions-quickstart-python-azd
 ---
 -->

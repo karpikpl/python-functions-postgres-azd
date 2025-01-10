@@ -4,8 +4,8 @@ param tags object = {}
 param applicationInsightsName string = ''
 param appServicePlanId string
 param appSettings object = {}
-param runtimeName string 
-param runtimeVersion string 
+param runtimeName string
+param runtimeVersion string
 param serviceName string = 'api'
 param storageAccountName string
 param deploymentStorageContainerName string
@@ -25,12 +25,12 @@ module api '../core/host/functions-flexconsumption.bicep' = {
     tags: union(tags, { 'azd-service-name': serviceName })
     identityType: 'UserAssigned'
     identityId: identityId
-    appSettings: union(appSettings,
-      {
-        AzureWebJobsStorage__clientId : identityClientId
-        APPLICATIONINSIGHTS_AUTHENTICATION_STRING: applicationInsightsIdentity
-        FUNCTIONS_EXTENSION_VERSION : '~3'
-      })
+    appSettings: union(appSettings, {
+      AzureWebJobsStorage__clientId: identityClientId
+      AZURE_CLIENT_ID: identityClientId
+      APPLICATIONINSIGHTS_AUTHENTICATION_STRING: applicationInsightsIdentity
+      FUNCTIONS_EXTENSION_VERSION: '~3'
+    })
     applicationInsightsName: applicationInsightsName
     appServicePlanId: appServicePlanId
     runtimeName: runtimeName
@@ -38,7 +38,7 @@ module api '../core/host/functions-flexconsumption.bicep' = {
     storageAccountName: storageAccountName
     deploymentStorageContainerName: deploymentStorageContainerName
     virtualNetworkSubnetId: virtualNetworkSubnetId
-    instanceMemoryMB: instanceMemoryMB 
+    instanceMemoryMB: instanceMemoryMB
     maximumInstanceCount: maximumInstanceCount
   }
 }

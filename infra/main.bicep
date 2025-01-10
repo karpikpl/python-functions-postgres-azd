@@ -38,6 +38,8 @@ param principalId string = ''
 // --------------------------------------------------------------------------------------------------------------
 @description('Azure AD admin name.')
 param aadAdminName string
+var POSTGRES_MONITORED_TABLE_NAME = 'monitored_table'
+var POSTGRES_TARGET_TABLE_NAME = 'target_table'
 
 @description('Azure AD admin Type')
 @allowed([
@@ -104,6 +106,15 @@ module api './app/api.bicep' = {
     identityId: apiUserAssignedIdentity.outputs.identityId
     identityClientId: apiUserAssignedIdentity.outputs.identityClientId
     appSettings: {
+      POSTGRES_HOST: pg.outputs.POSTGRES_DOMAIN_NAME
+      POSTGRES_NAME: pg.outputs.POSTGRES_NAME
+      POSTGRES_SSL: 'require'
+      POSTGRES_DATABASE: databaseName
+      POSTGRES_MONITORED_TABLE_NAME: POSTGRES_MONITORED_TABLE_NAME
+      POSTGRES_TARGET_TABLE_NAME: POSTGRES_TARGET_TABLE_NAME
+      POSTGRES_USERNAME: apiUserAssignedIdentity.outputs.identityName
+      QUEUECONNECTION__serviceUri: storage.outputs.primaryEndpoints.queue
+      QUEUE_NAME: queueName
     }
     virtualNetworkSubnetId: skipVnet ? '' : serviceVirtualNetwork.outputs.appSubnetID
   }
@@ -226,14 +237,18 @@ module pg 'db/postgresql.bicep' = {
   }
 }
 
-output POSTGRES_USERNAME string = aadAdminName
+output POSTGRES_ADMIN string = aadAdminName
 output POSTGRES_DATABASE string = databaseName
 output POSTGRES_HOST string = pg.outputs.POSTGRES_DOMAIN_NAME
 output POSTGRES_SSL string = 'require'
 output POSTGRES_NAME string = pg.outputs.POSTGRES_NAME
-output POSTGRES_MONITORED_TABLE_NAME string = 'monitored_table'
-output POSTGRES_TARGET_TABLE_NAME string = 'target_table'
+output POSTGRES_MONITORED_TABLE_NAME string = POSTGRES_MONITORED_TABLE_NAME
+output POSTGRES_TARGET_TABLE_NAME string = POSTGRES_TARGET_TABLE_NAME
 output IDENTITY_NAME string = apiUserAssignedIdentity.outputs.identityName
+
+output STORAGE_ACCOUNT_NAME string = storage.outputs.name
+output QUEUE_ENDPOINT string = storage.outputs.primaryEndpoints.queue
+output QUEUE_NAME string = queueName
 
 // App outputs
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.applicationInsightsConnectionString
